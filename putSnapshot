@@ -97,6 +97,7 @@
         printf "    -r,--replication <new rf>          Override the destination replication factor (defaults\n"
         printf "                                       to source replication factor)\n"
         printf "    -y,--yaml <cassandra.yaml file>    Alternate cassandra.yaml file\n"
+        printf "    -u,--user <username>               cqlsh/sstableloader username\n"
         exit 0
     }
 
@@ -120,8 +121,8 @@
 # --------------------------
     # Great sample getopt implementation by Cosimo Streppone
     # https://gist.github.com/cosimo/3760587#file-parse-options-sh
-    SHORT='hvd:f:n:k:r:y:'
-    LONG='help,version,datacenter:,file:,node:,keyspace:,replication:,yaml:'
+    SHORT='hvd:f:n:k:r:y:u:'
+    LONG='help,version,datacenter:,file:,node:,keyspace:,replication:,yaml:,user:'
     OPTS=$( getopt -o $SHORT --long $LONG -n "$0" -- "$@" )
 
     if [ $? -gt 0 ]; then
@@ -141,6 +142,7 @@
             -d|--datacenter) DATACENTER="$2"; shift 2;;
             -r|--replication) RFACTOR="$2"; shift 2;;
             -y|--yaml) INPYAML="$2"; shift 2;;
+            -u|--user) CASUSER="-u $2"; shift 2;;
             --) shift; break;;
             *) printf "Error processing command arguments\n" >&2; exit 1;;
         esac
@@ -289,7 +291,7 @@
 
         # Use CQL version in environment, if available
         [ -z $CQLVER ] && CQLSHVER="" || CQLSHVER="--cqlversion=$CQLVER"
-        OUTPUT=$( cqlsh -f $CLITMPFILE $CQLSHVER $CASIP 2>&1 )
+        OUTPUT=$( cqlsh $CASUSER -f $CLITMPFILE $CQLSHVER $CASIP 2>&1 )
         RC=$?
 
         if [ $RC -eq 0 ] && grep -qi 'CREATE KEYSPACE '$NEWKSNAME' ' <<< $OUTPUT; then
@@ -323,11 +325,11 @@
             sleep 5
 
             # Create schema for the new keyspace
-            cqlsh -f "$SCHEMAFILE" $CQLSHVER $CASIP
+            cqlsh $CASUSER -f "$SCHEMAFILE" $CQLSHVER $CASIP
 
             printf "    Loading snapshot into keyspace $NEWKSNAME\n"
             for columnfamily in `ls "${TEMPDIR}/${NEWKSNAME}"`; do
-                sstableloader -d $CASIP "${TEMPDIR}/${NEWKSNAME}/${columnfamily}"
+                sstableloader -d $CASIP $CASUSER "${TEMPDIR}/${NEWKSNAME}/${columnfamily}"
             done
 
             printf "\n\nImport operation complete - check output for errors\n"

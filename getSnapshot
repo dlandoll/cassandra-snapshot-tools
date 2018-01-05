@@ -46,6 +46,7 @@
     HOSTSFILE="cassandra.hostname"
     DATESFILE="cassandra.snapdate"
     APPENDTIMESTAMP="yes"
+    CASUSER=""
 
 # Functions
 # ---------
@@ -96,6 +97,7 @@
         printf "    -k,--keyspace <keyspace name>      REQUIRED: The name of the keyspace to snapshot\n"
         printf "    -s,--snapshot <snapshot name>      The name of an existing snapshot to package\n"
         printf "    -y,--yaml <cassandra.yaml file>    Alternate cassandra.yaml file\n"
+        printf "    -u,--user <username>               cqlsh username\n"
         printf "    --no-timestamp                     Don't include a timestamp in the resulting filename\n"
         exit 0
     }
@@ -120,8 +122,8 @@
 # --------------------------
     # Great sample getopt implementation by Cosimo Streppone
     # https://gist.github.com/cosimo/3760587#file-parse-options-sh
-    SHORT='hvk:s:y:'
-    LONG='help,version,keyspace:,snapshot:,yaml:,no-timestamp'
+    SHORT='hvk:s:y:u:'
+    LONG='help,version,keyspace:,snapshot:,yaml:,user:,no-timestamp'
     OPTS=$( getopt -o $SHORT --long $LONG -n "$0" -- "$@" )
 
     if [ $? -gt 0 ]; then
@@ -138,6 +140,7 @@
             -k|--keyspace) KEYSPACE="$2"; shift 2;;
             -s|--snapshot) SNAPSHOT="$2"; shift 2;;
             -y|--yaml) INPYAML="$2"; shift 2;;
+            -u|--user) CASUSER="-u $2"; shift 2;;
             --no-timestamp) APPENDTIMESTAMP="no"; shift;;
             --) shift; break;;
             *) printf "Error processing command arguments\n" >&2; exit 1;;
@@ -269,7 +272,7 @@
     printf "$SNAPSHOT" > "$DUMPDIR/$SNAPSFILE"
     printf "$HOSTNAME" > "$DUMPDIR/$HOSTSFILE"
     printf "$DATESTRING" > "$DUMPDIR/$DATESFILE"
-    cqlsh $CASIP -k $KEYSPACE -f $CLITMPFILE | tail -n +2 > "$DUMPDIR/$SCHEMA"
+    cqlsh $CASIP $CASUSER -k $KEYSPACE -f $CLITMPFILE | tail -n +2 > "$DUMPDIR/$SCHEMA"
     RC=$?
 
     if [ $? -gt 0 ] && [ ! -s "$DUMPDIR/$SCHEMA" ]; then
